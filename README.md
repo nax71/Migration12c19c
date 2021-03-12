@@ -189,9 +189,9 @@ Upgrade Timezone
 
 END Upgrade
 --
-Change TNS Entries 
-Change oratab
-Backup database
+* Change TNS Entries 
+* Change oratab
+* Backup database
 
 
 
