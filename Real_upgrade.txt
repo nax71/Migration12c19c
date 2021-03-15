@@ -1,0 +1,137 @@
+TODO 
+===========================
+change /home/oracle/.bash_profile
+
+
+Binaires location: /nfs_storage/installs/ORACLE_19C_19.3/BIN
+Patch location: /nfs_storage/installs/ORACLE_19C_19.3/PATCH_19.3
+RSP file: /nfs_storage/installs/ORACLE_19C_19.3/BIN/install/response
+mkdir -p /data/app/oracle/product/19.3/dbhome_1
+
+# unzip in the same location as the oracle home. Only relink is needed in oracle19
+===================================================
+cp /nfs_storage/installs/ORACLE_19C_19.3/BIN/LINUX.X64_193000_db_home.zip  /data/app/oracle/product/19.3/dbhome_1
+unzip LINUX.X64_193000_db_home.zip
+cd /data/app/oracle/product/19.3/dbhome_1/install/response
+mv db_install.rsp db_install.rsp.orig
+cp /nfs_storage/installs/ORACLE_19C_19.3/BIN/install/response/db_install.rsp .
+cd /data/app/oracle/product/19.3/dbhome_1
+./runInstaller -silent -responseFile install/response/db_install.rsp
+	smartmontools-6.2-4 package missing. 
+	IGNORABLE
+
+root
+/data/app/oracle/product/19.3/dbhome_1/install/root_pmupa4-db500_2021-03-15_10-41-33-531816748.log
+rm /data/app/oracle/product/19.3/dbhome_1/LINUX.X64_193000_db_home.zip
+
+===================================================
+ORACLE_SID=PMURCT2
+===================================================
+select count(*) from dba_objects where status='INVALID';
+
+  COUNT(*)
+----------
+        59
+$ORACLE_HOME/jdk/bin/java -jar /data/app/oracle/product/19.3/dbhome_1/rdbms/admin/preupgrade.jar TERMINAL TEXT
+
+sqlplus '/as sysdba' @/data/app/oracle/cfgtoollogs/PMURCT2/preupgrade/preupgrade_fixups.sql
+
+EXECUTE DBMS_STATS.GATHER_DICTIONARY_STATS;
+EXECUTE DBMS_STATS.GATHER_FIXED_OBJECTS_STATS;
+PURGE DBA_RECYCLEBIN;
+
+cd $ORACLE_HOME/dbs
+cp orapw* spfile* /data/app/oracle/product/19.3/dbhome_1/dbs/
+ls /data/app/oracle/product/19.3/dbhome_1/dbs/
+
+cd $ORACLE_HOME/network/admin
+sqlnet.ora tnsnames.ora /data/app/oracle/product/19.3/dbhome_1/network/admin/
+
+
+BACKUP 
+=================
+CONFIGURE BACKUP OPTIMIZATION ON;
+CONFIGURE DEVICE TYPE DISK PARALLELISM 4 BACKUP TYPE TO COMPRESSED backupset ;
+CONFIGURE RETENTION POLICY TO REDUNDANCY 4;
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '/nfs_storage/recette_2/database/pmupa4-db500/backup/%F' ;
+backup archivelog all;
+
+STOP LISTENER 
+
+UPGRADE 
+=====================
+shutdown immediate;
+
+export ORACLE_HOME=/data/app/oracle/product/19.3/dbhome_1
+export PATH=/data/app/oracle/product/19.3/dbhome_1/bin:$PATH
+
+startup upgrade;
+select name,open_mode,cdb,version,status from v$database,v$instance;
+NAME      OPEN_MODE            CDB VERSION           STATUS
+--------- -------------------- --- ----------------- ------------
+CID       READ WRITE           NO  19.0.0.0.0        OPEN MIGRATE 
+
+cd $ORACLE_HOME/bin
+pwd
+/data/app/oracle/product/19.3/dbhome_1/bin
+ls -ltr dbupgrade
+
+./dbupgrade
+....
+	Phases 107
+
+sqlplus / as sysdba
+startup 
+col open_mode format a30
+col COMP_ID for a10
+col COMP_NAME for a40
+col VERSION for a15
+set lines 180
+set pages 999
+select name,open_mode,cdb,version,status from v$database,v$instance;
+NAME                        OPEN_MODE                      CDB       VERSION         STATUS
+--------------------------- ------------------------------ --------- --------------- ------------------------------------
+PMURCT2                     READ WRITE                     NO        19.0.0.0.0      OPEN
+
+select COMP_ID,COMP_NAME,VERSION,STATUS from dba_registry;
+
+cd /data/app/oracle/product/19.3/dbhome_1/rdbms/admin
+sqlplus '/as sysdba' @utlrp.sql
+sqlplus '/as sysdba' @/data/app/oracle/cfgtoollogs/$ORACLE_SID/preupgrade/postupgrade_fixups.sql
+
+UPGRADE TIMEZONE 
+===============================
+if error check 
+https://minimalistic-oracle.blogspot.com/2018/02/dstupgradestate-set-to-datapump1-when.html
+
+cd /data/app/oracle/product/19.3/dbhome_1/rdbms/admin
+sqlplus '/as sysdba'
+SELECT version FROM v$timezone_file;
+   VERSION
+----------
+        26
+
+sqlplus '/as sysdba' 
+@utltz_upg_check.sql
+@utltz_upg_apply.sql
+SELECT version FROM v$timezone_file;
+
+   VERSION
+----------
+        32
+
+
+	check versions 
+@utlusts.sql TEXT
+@catuppst.sql
+exit
+sqlplus '/as sysdba' @/data/app/oracle/cfgtoollogs/$ORACLE_SID/preupgrade/postupgrade_fixups.sql
+
+select count(*) from dba_objects where status='INVALID';
+show parameter COMPATIBLE
+ALTER SYSTEM SET COMPATIBLE = '19.3.0.0.0' SCOPE=SPFILE;
+shutdown immediate
+startup
+
+change oratab 
