@@ -99,21 +99,22 @@ Verify tablespace sizes for upgrade
 
 If Dataguard
 --
--- on standby 
-SQL> alter database recover managed standby cancel;
-DGMGRL> disable fast_start failover
-DGMGRL> disable configuration
-SQL> select 'host cp ' || value || ' /tmp' as cmd from v$parameter where name like 'dg_broker_config_file%';
-SQL> host ls /tmp/dr*.dat
-SQL> alter system set dg_broker_start=false scope=both;
 
--- on primary
-DGMGRL> disable fast_start failover
-DGMGRL> disable configuration
-SQL> select 'host cp ' || value || ' /tmp' as cmd from v$parameter where name like 'dg_broker_config_file%';
-SQL> host ls /tmp/dr*.dat
-SQL> alter system set dg_broker_start=false scope=both;
-SQL> alter system set log_archive_dest_state_2 = defer
+	-- on standby 
+	SQL> alter database recover managed standby cancel;
+	DGMGRL> disable fast_start failover
+	DGMGRL> disable configuration
+	SQL> select 'host cp ' || value || ' /tmp' as cmd from v$parameter where name like 'dg_broker_config_file%';
+	SQL> host ls /tmp/dr*.dat
+	SQL> alter system set dg_broker_start=false scope=both;
+
+	-- on primary
+	DGMGRL> disable fast_start failover
+	DGMGRL> disable configuration
+	SQL> select 'host cp ' || value || ' /tmp' as cmd from v$parameter where name like 'dg_broker_config_file%';
+	SQL> host ls /tmp/dr*.dat
+	SQL> alter system set dg_broker_start=false scope=both;
+	SQL> alter system set log_archive_dest_state_2 = defer
 
 
 Stop LISTENER
@@ -208,21 +209,21 @@ Upgrade Timezone
 
 If Standby
 --
--- primary
-SQL> alter system set log_archive_dest_state_2 = enable;
--- stabndby
-SQL> alter database recover managed standby database disconnect from session;
--- check rfs process 
-SQL> select process, status sequence# from v$managed_standby;
--- waint until the dabases are sync
+	-- primary
+	SQL> alter system set log_archive_dest_state_2 = enable;
+	-- stabndby
+	SQL> alter database recover managed standby database disconnect from session;
+	-- check rfs process 
+	SQL> select process, status sequence# from v$managed_standby;
+	-- waint until the dabases are sync
 
--- Enable Broker on primary and standby
-$> cp /tmp/dr1$ORACLE_UNQNAME.dat $ORACLE_HOME/dbs
-$> cp /tmp/dr2$ORACLE_UNQNAME.dat $ORACLE_HOME/dbs
-SQL> alter system set dg_broker_start=true scope=both;
-DGMGRL> show configuration
-DGMGRL> enable configuration
-DGMGRL> enable fast_start failover
+	-- Enable Broker on primary and standby
+	$> cp /tmp/dr1$ORACLE_UNQNAME.dat $ORACLE_HOME/dbs
+	$> cp /tmp/dr2$ORACLE_UNQNAME.dat $ORACLE_HOME/dbs
+	SQL> alter system set dg_broker_start=true scope=both;
+	DGMGRL> show configuration
+	DGMGRL> enable configuration
+	DGMGRL> enable fast_start failover
 
 END Upgrade
 --
